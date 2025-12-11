@@ -1,6 +1,8 @@
 from flask import Blueprint, jsonify, request
 from app.models.user import LoginPayLoad
 from pydantic import ValidationError
+from app import db
+from bson import ObjectId
 
 main_bp = Blueprint("main_bp", __name__)
 
@@ -19,28 +21,43 @@ def login():
     else:
         return jsonify({"message":f"Erro nas credenciais"}), 401
 
-@main_bp.route("/product/", methods=['GET'])
+@main_bp.route("/products/", methods=['GET'])
 def get_products():
-    return jsonify({"message":"Listagem de produtos"})
+    products_cursor = db.products.find({})
+    products_list = []
+    for p in products_cursor:
+       p['_id'] = str(p['_id'])
+       products_list.append(p)
+    return jsonify(products_list)
 
 
-@main_bp.route("/product/<int:id>", methods=['GET'])
+@main_bp.route("/products/<string:id>", methods=['GET'])
 def get_product_id(id):
-    return jsonify({"message":"Um unico produto"})
+    try:
+        oid = ObjectId(id)
+    except Exception as e:
+        return jsonify({"error":f"Erro ao buscar o produto{id}: {e}"}), 500
 
-@main_bp.route("/product/", methods=['POST'])
+    product_cursor = db.products.find_one({'_id': oid})
+    if product_cursor:
+        product_cursor['_id'] = str(product_cursor['_id'])
+        return jsonify(product_cursor), 200
+    else:
+        return jsonify({"error":f"Produto {id} nao encontrado"}), 404
+
+@main_bp.route("/products/", methods=['POST'])
 def create_product():
     return jsonify({"message":"Criando produto"})
 
-@main_bp.route("/product/<int:id>", methods=['PUT'])
+@main_bp.route("/products/<int:id>", methods=['PUT'])
 def update_product(id):
     return jsonify({"message":"Atualizando produto"})
 
-@main_bp.route("/product/<int:id>", methods=['PATCH'])
+@main_bp.route("/products/<int:id>", methods=['PATCH'])
 def update_product_partial(id):
     return jsonify({"message":"Atualizando produto"})
 
-@main_bp.route("/product/<int:id>", methods=['DELETE'])
+@main_bp.route("/products/<int:id>", methods=['DELETE'])
 def delete_product(id):
     return jsonify({"message":"Deletando produto"})
 
