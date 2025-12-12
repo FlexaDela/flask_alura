@@ -9,7 +9,7 @@ class Product(BaseModel):
     description: Optional[str] = None
     stock: int
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
 
 class ProdctDBModel(Product):
     def model_dump(self, *, mode='python', include=None, exclude=None, context=None, by_alias=None, exclude_unset=False, exclude_defaults=False, exclude_none=False, round_trip=False):
