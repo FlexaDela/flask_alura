@@ -4,9 +4,15 @@ from pydantic import ValidationError
 from app import db
 from bson import ObjectId
 from app.models.procuts import Product, ProdctDBModel
+from app.models.sales import Sale
 from app.decorators import token_required 
 from datetime import datetime, timedelta, timezone
 import jwt
+import csv
+import os
+import io
+
+
 
 main_bp = Blueprint("main_bp", __name__)
 
@@ -98,6 +104,45 @@ def delete_product(token, id):
     if delete_result.deleted_count == 0:
         return jsonify({"error":"Produto nao encontrado"}), 404
     return jsonify({"message":"Produto deletado com sucesso"}), 200
+
+
+@main.bp.route('/sales/upload', methods=['POST'])
+@token_required
+def upload_sales(token):
+    if 'file' not in request.files:
+        return jsonify({"error":"Nenhum arquivo foi enviado"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error":"Nenhum arquivo selecionado"}), 400
+    
+    if file.filename.endswith('.csv'):
+        csv_stram = io.StringIO(file.stream.read().decode('utf-8'), newline=None)
+        csv_reader = csv.DictReader(csv_stram)
+        
+        sales_to_inser = []
+        error = []
+
+        for row_num, row in enumerate(csv_reader, 1):
+            try:
+                sale_data = Sale(**row)
+                sales_to_inser.append(sale_data.model_dump(by_alias=True))
+            except ValidationError as e:
+                error.append({"row": row_num, "errors": e.errors()})
+            except Exception as e:
+                error.append({"row": row_num, "errors": str(e)})
+
+        if sales_to_insert:
+            try:
+                db.sales.insert_many(sales_to_insert)
+                return jsonify({"message":"Vendas importadas com sucesso"}), 201
+            except Exception as e:
+                error.append({"row": row_num, "errors": str(e)})
+        return jsonify({
+            "message":"Upload realizado com sucesso",
+            "vendas importadas": len(sales_to_insert),
+            "erros": error
+            }), 200
 
 @main_bp.route("/")
 def index():
