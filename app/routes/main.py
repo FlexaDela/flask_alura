@@ -67,17 +67,37 @@ def create_product(token):
     db.products.insert_one(product.model_dump(by_alias=True))
     return jsonify({"message":"Produto criado com sucesso"}), 201
 
-@main_bp.route("/products/<int:id>", methods=['PUT'])
-def update_product(id):
-    return jsonify({"message":"Atualizando produto"})
+@main_bp.route("/products/<string:id>", methods=['PUT'])
+@token_required
+def update_product(token, id):
+    try:
+        oid = ObjectId(id)
+        update_data = UpdateProduct(**request.get_json())
+    except ValidationError as e:
+        return jsonify({"error":e.errors()}), 400
 
-@main_bp.route("/products/<int:id>", methods=['PATCH'])
-def update_product_partial(id):
-    return jsonify({"message":"Atualizando produto"})
+    update_result = db.products.update_one({'_id': oid}, {'$set': update_data.model_dump(by_alias=True)})
 
-@main_bp.route("/products/<int:id>", methods=['DELETE'])
-def delete_product(id):
-    return jsonify({"message":"Deletando produto"})
+    if update_result.modified_count == 0:
+        return jsonify({"error":"Produto nao encontrado"}), 404
+
+    
+    updated_product = db.products.find_one({'_id': oid})
+    return jsonify(ProdctDBModel(**updated_product).model_dump(by_alias=True, exclude_none=True)), 200
+
+@main_bp.route("/products/<string:id>", methods=['DELETE'])
+@token_required
+def delete_product(token, id):
+    try:
+        oid = ObjectId(id)
+    except Exception as e:
+        return jsonify({"error":f"Erro ao deletar o produto{id}: {e}"}), 500
+
+    delete_result = db.products.delete_one({'_id': oid})
+
+    if delete_result.deleted_count == 0:
+        return jsonify({"error":"Produto nao encontrado"}), 404
+    return jsonify({"message":"Produto deletado com sucesso"}), 200
 
 @main_bp.route("/")
 def index():
